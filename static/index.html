@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>YouTube Downloader</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="panel" aria-labelledby="title">
+        <div class="heading">
+          <div>
+            <p class="eyebrow">Local downloader</p>
+            <h1 id="title">YouTube Video Downloader</h1>
+          </div>
+          <div class="status-pill" id="dependencyStatus">Checking tools...</div>
+        </div>
+
+        <form id="downloadForm" class="download-form">
+          <label class="field">
+            <span>Video link</span>
+            <input
+              id="url"
+              name="url"
+              type="url"
+              placeholder="https://www.youtube.com/watch?v=..."
+              autocomplete="off"
+              required
+            />
+          </label>
+
+          <div class="settings-grid">
+            <label class="field">
+              <span>Max quality</span>
+              <select id="maxHeight" name="maxHeight">
+                <option value="2160" selected>4K / 2160p</option>
+                <option value="1440">1440p</option>
+                <option value="1080">1080p</option>
+                <option value="720">720p</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span>Subtitle languages</span>
+              <input id="subtitleLangs" name="subtitleLangs" value="en.*,en" />
+            </label>
+
+            <label class="field">
+              <span>Subtitle format</span>
+              <select id="subtitleFormat" name="subtitleFormat">
+                <option value="srt/best" selected>SRT if possible</option>
+                <option value="vtt/best">VTT if possible</option>
+                <option value="best">Best available</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="toggles">
+            <label>
+              <input id="autoSubtitles" name="autoSubtitles" type="checkbox" checked />
+              <span>Use auto captions when manual subtitles are missing</span>
+            </label>
+            <label>
+              <input id="embedSubtitles" name="embedSubtitles" type="checkbox" />
+              <span>Embed subtitles into the video file when possible</span>
+            </label>
+          </div>
+
+          <button class="primary-button" id="submitButton" type="submit">
+            Download
+          </button>
+        </form>
+
+        <section class="job" id="job" hidden>
+          <div class="job-topline">
+            <div>
+              <p class="job-label">Current download</p>
+              <h2 id="jobTitle">Preparing...</h2>
+            </div>
+            <span id="jobState">Queued</span>
+          </div>
+          <div class="progress-track" aria-label="Download progress">
+            <div class="progress-fill" id="progressFill"></div>
+          </div>
+          <div class="job-meta">
+            <span id="progressText">0%</span>
+            <span id="speedText"></span>
+            <span id="etaText"></span>
+          </div>
+          <p class="message" id="message"></p>
+          <div class="files" id="files"></div>
+        </section>
+      </section>
+
+      <p class="footnote">
+        Downloads are saved locally in the <code>downloads</code> folder. Use this only for videos you own or have permission to download.
+      </p>
+    </main>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>
