@@ -17,7 +17,7 @@ wheels = [
 ]
 
 [[package]]
-name = "youtube-video-downloader"
+name = "samnehs-youtube-download"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

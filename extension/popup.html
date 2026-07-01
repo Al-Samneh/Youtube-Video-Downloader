@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Samneh's YouTube Download</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <p>Samneh's</p>
+        <h1>YouTube Download</h1>
+        <span id="health">Checking local app...</span>
+      </header>
+
+      <form id="downloadForm">
+        <label>
+          <span>Video URL</span>
+          <input id="url" name="url" type="url" placeholder="https://www.youtube.com/watch?v=..." required />
+        </label>
+
+        <label>
+          <span>Max quality</span>
+          <select id="maxHeight" name="maxHeight">
+            <option value="2160" selected>4K / 2160p</option>
+            <option value="1440">1440p</option>
+            <option value="1080">1080p</option>
+            <option value="720">720p</option>
+          </select>
+        </label>
+
+        <label>
+          <span>Subtitle languages</span>
+          <input id="subtitleLangs" name="subtitleLangs" value="en.*,en" />
+        </label>
+
+        <label class="check">
+          <input id="autoSubtitles" name="autoSubtitles" type="checkbox" checked />
+          <span>Use auto captions if needed</span>
+        </label>
+
+        <button id="submitButton" type="submit">Send to downloader</button>
+      </form>
+
+      <section id="statusPanel" hidden>
+        <div>
+          <strong id="jobStatus">Queued</strong>
+          <span id="jobProgress">0%</span>
+        </div>
+        <progress id="progress" value="0" max="100"></progress>
+        <p id="message"></p>
+      </section>
+
+      <p class="note">Start the local app first: <code>uv run python app.py</code></p>
+    </main>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

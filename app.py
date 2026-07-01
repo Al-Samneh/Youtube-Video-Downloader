@@ -28,6 +28,11 @@ ROOT = Path(__file__).resolve().parent
 STATIC_DIR = ROOT / "static"
 DOWNLOAD_DIR = ROOT / "downloads"
 MAX_BODY_BYTES = 32 * 1024
+APP_NAME = "Samneh's YouTube Download"
+DEFAULT_MAX_HEIGHT = 2160
+SUPPORTED_MAX_HEIGHTS = {720, 1080, 1440, 2160}
+SUPPORTED_SUBTITLE_FORMATS = {"srt/best", "vtt/best", "best"}
+YOUTUBE_HOSTS = {"youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com", "youtu.be"}
 
 
 @dataclass
@@ -71,13 +76,25 @@ def now_update(job: Job) -> None:
 
 
 def parse_json_body(handler: SimpleHTTPRequestHandler) -> Dict[str, Any]:
-    content_length = int(handler.headers.get("Content-Length", "0"))
+    try:
+        content_length = int(handler.headers.get("Content-Length", "0"))
+    except ValueError as exc:
+        raise ValueError("Invalid Content-Length header.") from exc
+
     if content_length <= 0:
         return {}
     if content_length > MAX_BODY_BYTES:
         raise ValueError("Request body is too large.")
+
     raw = handler.rfile.read(content_length)
     return json.loads(raw.decode("utf-8"))
+
+
+def send_api_headers(handler: SimpleHTTPRequestHandler) -> None:
+    handler.send_header("Access-Control-Allow-Origin", "*")
+    handler.send_header("Access-Control-Allow-Headers", "Content-Type")
+    handler.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+    handler.send_header("Cache-Control", "no-store")
 
 
 def json_response(handler: SimpleHTTPRequestHandler, payload: Any, status: int = 200) -> None:
@@ -85,6 +102,7 @@ def json_response(handler: SimpleHTTPRequestHandler, payload: Any, status: int =
     handler.send_response(status)
     handler.send_header("Content-Type", "application/json; charset=utf-8")
     handler.send_header("Content-Length", str(len(data)))
+    send_api_headers(handler)
     handler.end_headers()
     handler.wfile.write(data)
 
@@ -97,7 +115,27 @@ def is_supported_url(url: str) -> bool:
     parsed = urlparse(url)
     if parsed.scheme not in {"http", "https"}:
         return False
-    return bool(parsed.netloc)
+
+    host = (parsed.hostname or "").lower()
+    return host in YOUTUBE_HOSTS or host.endswith(".youtube.com")
+
+
+def coerce_max_height(value: Any) -> int:
+    try:
+        height = int(value or DEFAULT_MAX_HEIGHT)
+    except (TypeError, ValueError):
+        return DEFAULT_MAX_HEIGHT
+
+    if height in SUPPORTED_MAX_HEIGHTS:
+        return height
+    return DEFAULT_MAX_HEIGHT
+
+
+def coerce_subtitle_format(value: Any) -> str:
+    subtitle_format = str(value or "srt/best").strip()
+    if subtitle_format in SUPPORTED_SUBTITLE_FORMATS:
+        return subtitle_format
+    return "srt/best"
 
 
 def compact_speed(value: Optional[float]) -> str:
@@ -153,8 +191,8 @@ def split_subtitle_langs(value: str) -> list[str]:
 def build_ydl_options(job: Job, output_dir: Path, payload: Dict[str, Any], before: set[Path]) -> Dict[str, Any]:
     include_auto_subs = bool(payload.get("autoSubtitles", True))
     subtitle_langs = str(payload.get("subtitleLangs") or "en.*,en").strip()
-    subtitle_format = str(payload.get("subtitleFormat") or "srt/best").strip()
-    max_height = int(payload.get("maxHeight") or 2160)
+    subtitle_format = coerce_subtitle_format(payload.get("subtitleFormat"))
+    max_height = coerce_max_height(payload.get("maxHeight"))
     embed_subtitles = bool(payload.get("embedSubtitles", False))
 
     # Prefer separate best video/audio up to the requested ceiling, which is how YouTube
@@ -267,6 +305,17 @@ class DownloaderHandler(SimpleHTTPRequestHandler):
     def log_message(self, format: str, *args: Any) -> None:
         return
 
+    def do_OPTIONS(self) -> None:
+        parsed = urlparse(self.path)
+        if not parsed.path.startswith("/api/"):
+            self.send_response(HTTPStatus.NOT_FOUND)
+            self.end_headers()
+            return
+
+        self.send_response(HTTPStatus.NO_CONTENT)
+        send_api_headers(self)
+        self.end_headers()
+
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
         if parsed.path == "/api/health":
@@ -274,10 +323,12 @@ class DownloaderHandler(SimpleHTTPRequestHandler):
                 self,
                 {
                     "ok": True,
+                    "appName": APP_NAME,
                     "ytDlpInstalled": yt_dlp is not None,
                     "ffmpegInstalled": ffmpeg_location() is not None,
                     "ffmpegLocation": ffmpeg_location(),
                     "downloadDir": str(DOWNLOAD_DIR),
+                    "supportedHosts": sorted(YOUTUBE_HOSTS),
                 },
             )
             return
@@ -309,7 +360,7 @@ class DownloaderHandler(SimpleHTTPRequestHandler):
 
         url = str(payload.get("url") or "").strip()
         if not is_supported_url(url):
-            error_response(self, "Enter a valid http(s) video URL.", HTTPStatus.BAD_REQUEST)
+            error_response(self, "Enter a valid YouTube URL.", HTTPStatus.BAD_REQUEST)
             return
 
         job_id = uuid.uuid4().hex
@@ -328,7 +379,7 @@ def main() -> None:
     DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
     STATIC_DIR.mkdir(parents=True, exist_ok=True)
     server = ThreadingHTTPServer((host, port), DownloaderHandler)
-    print(f"Downloader running at http://{host}:{port}")
+    print(f"{APP_NAME} running at http://{host}:{port}")
     print(f"Downloads will be saved to {DOWNLOAD_DIR}")
     server.serve_forever()
 

@@ -1,7 +1,7 @@
 [project]
-name = "youtube-video-downloader"
+name = "samnehs-youtube-download"
 version = "0.1.0"
-description = "Local web app for downloading YouTube videos with subtitles."
+description = "Local YouTube downloader with a companion Chrome extension."
 requires-python = ">=3.10"
 dependencies = [
   "imageio-ffmpeg>=0.6.0",

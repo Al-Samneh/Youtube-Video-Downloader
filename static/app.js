@@ -1,139 +1,156 @@
-const form = document.querySelector("#downloadForm");
-const dependencyStatus = document.querySelector("#dependencyStatus");
-const submitButton = document.querySelector("#submitButton");
-const jobPanel = document.querySelector("#job");
-const jobTitle = document.querySelector("#jobTitle");
-const jobState = document.querySelector("#jobState");
-const progressFill = document.querySelector("#progressFill");
-const progressText = document.querySelector("#progressText");
-const speedText = document.querySelector("#speedText");
-const etaText = document.querySelector("#etaText");
-const message = document.querySelector("#message");
-const files = document.querySelector("#files");
+const selectors = {
+  form: "#downloadForm",
+  dependencyStatus: "#dependencyStatus",
+  submitButton: "#submitButton",
+  jobPanel: "#job",
+  jobTitle: "#jobTitle",
+  jobState: "#jobState",
+  progressFill: "#progressFill",
+  progressText: "#progressText",
+  speedText: "#speedText",
+  etaText: "#etaText",
+  message: "#message",
+  files: "#files",
+};
+
+const ui = Object.fromEntries(
+  Object.entries(selectors).map(([key, selector]) => [key, document.querySelector(selector)])
+);
 
 let pollTimer = null;
 
+function setSubmitState(disabled, label) {
+  ui.submitButton.disabled = disabled;
+  ui.submitButton.textContent = label;
+}
+
+async function requestJson(path, options = {}) {
+  const response = await fetch(path, {
+    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+    ...options,
+  });
+  const payload = await response.json();
+
+  if (!response.ok) {
+    throw new Error(payload.error || "Request failed.");
+  }
+
+  return payload;
+}
+
+function stopPolling() {
+  if (!pollTimer) return;
+  clearInterval(pollTimer);
+  pollTimer = null;
+}
+
 function setDependencyStatus(health) {
-  dependencyStatus.classList.remove("ready", "warning");
+  ui.dependencyStatus.classList.remove("ready", "warning");
 
   if (!health.ytDlpInstalled) {
-    dependencyStatus.textContent = "Run uv sync to install yt-dlp";
-    dependencyStatus.classList.add("warning");
+    ui.dependencyStatus.textContent = "Run uv sync to install yt-dlp";
+    ui.dependencyStatus.classList.add("warning");
     return;
   }
 
   if (!health.ffmpegInstalled) {
-    dependencyStatus.textContent = "ffmpeg missing; 4K merges may fail";
-    dependencyStatus.classList.add("warning");
+    ui.dependencyStatus.textContent = "ffmpeg missing; 4K merges may fail";
+    ui.dependencyStatus.classList.add("warning");
     return;
   }
 
-  dependencyStatus.textContent = "Ready for 4K + subtitles";
-  dependencyStatus.classList.add("ready");
+  ui.dependencyStatus.textContent = "Ready for 4K + subtitles";
+  ui.dependencyStatus.classList.add("ready");
 }
 
 async function checkHealth() {
   try {
-    const response = await fetch("/api/health");
-    setDependencyStatus(await response.json());
+    setDependencyStatus(await requestJson("/api/health"));
   } catch {
-    dependencyStatus.textContent = "Backend is not responding";
-    dependencyStatus.classList.add("warning");
+    ui.dependencyStatus.textContent = "Backend is not responding";
+    ui.dependencyStatus.classList.add("warning");
   }
 }
 
 function renderFiles(paths) {
-  files.innerHTML = "";
+  ui.files.innerHTML = "";
   if (!paths || paths.length === 0) return;
 
   for (const path of paths) {
     const row = document.createElement("div");
     row.className = "file-row";
     row.textContent = path;
-    files.append(row);
+    ui.files.append(row);
   }
 }
 
 function renderJob(job) {
-  jobPanel.hidden = false;
-  jobTitle.textContent = job.title || job.url || "Preparing...";
-  jobState.textContent = job.status;
+  ui.jobPanel.hidden = false;
+  ui.jobTitle.textContent = job.title || job.url || "Preparing...";
+  ui.jobState.textContent = job.status;
 
   const percent = Math.max(0, Math.min(100, Number(job.percent || 0)));
-  progressFill.style.width = `${percent}%`;
-  progressText.textContent = `${percent.toFixed(percent % 1 ? 1 : 0)}%`;
-  speedText.textContent = job.speed || "";
-  etaText.textContent = job.eta ? `ETA ${job.eta}` : "";
-  message.textContent = job.message || "";
+  ui.progressFill.style.width = `${percent}%`;
+  ui.progressText.textContent = `${percent.toFixed(percent % 1 ? 1 : 0)}%`;
+  ui.speedText.textContent = job.speed || "";
+  ui.etaText.textContent = job.eta ? `ETA ${job.eta}` : "";
+  ui.message.textContent = job.message || "";
   renderFiles(job.files);
 
   if (job.status === "completed" || job.status === "failed") {
-    submitButton.disabled = false;
-    submitButton.textContent = "Download";
-    clearInterval(pollTimer);
-    pollTimer = null;
+    setSubmitState(false, "Start download");
+    stopPolling();
   }
 }
 
 async function pollJob(id) {
   try {
-    const response = await fetch(`/api/jobs/${id}`);
-    const job = await response.json();
-    renderJob(job);
+    renderJob(await requestJson(`/api/jobs/${id}`));
   } catch {
-    message.textContent = "Lost connection to the backend.";
-    submitButton.disabled = false;
-    submitButton.textContent = "Download";
-    clearInterval(pollTimer);
-    pollTimer = null;
+    ui.message.textContent = "Lost connection to the backend.";
+    setSubmitState(false, "Start download");
+    stopPolling();
   }
 }
 
-form.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  clearInterval(pollTimer);
-
-  const formData = new FormData(form);
-  const payload = {
-    url: formData.get("url"),
+function buildPayload() {
+  const formData = new FormData(ui.form);
+  return {
+    url: String(formData.get("url") || "").trim(),
     maxHeight: Number(formData.get("maxHeight")),
     subtitleLangs: formData.get("subtitleLangs"),
     subtitleFormat: formData.get("subtitleFormat"),
     autoSubtitles: formData.get("autoSubtitles") === "on",
     embedSubtitles: formData.get("embedSubtitles") === "on",
   };
+}
 
-  submitButton.disabled = true;
-  submitButton.textContent = "Starting...";
-  files.innerHTML = "";
+ui.form.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  stopPolling();
+  setSubmitState(true, "Starting...");
+  ui.files.innerHTML = "";
 
   try {
-    const response = await fetch("/api/downloads", {
+    const job = await requestJson("/api/downloads", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(buildPayload()),
     });
-    const data = await response.json();
 
-    if (!response.ok) {
-      throw new Error(data.error || "Download failed to start.");
-    }
-
-    renderJob(data);
-    submitButton.textContent = "Downloading...";
-    pollTimer = setInterval(() => pollJob(data.id), 1000);
-    pollJob(data.id);
+    renderJob(job);
+    setSubmitState(true, "Downloading...");
+    pollTimer = setInterval(() => pollJob(job.id), 1000);
+    pollJob(job.id);
   } catch (error) {
-    jobPanel.hidden = false;
-    jobTitle.textContent = "Download did not start";
-    jobState.textContent = "failed";
-    progressFill.style.width = "0%";
-    progressText.textContent = "0%";
-    speedText.textContent = "";
-    etaText.textContent = "";
-    message.textContent = error.message;
-    submitButton.disabled = false;
-    submitButton.textContent = "Download";
+    ui.jobPanel.hidden = false;
+    ui.jobTitle.textContent = "Download did not start";
+    ui.jobState.textContent = "failed";
+    ui.progressFill.style.width = "0%";
+    ui.progressText.textContent = "0%";
+    ui.speedText.textContent = "";
+    ui.etaText.textContent = "";
+    ui.message.textContent = error.message;
+    setSubmitState(false, "Start download");
   }
 });
 
