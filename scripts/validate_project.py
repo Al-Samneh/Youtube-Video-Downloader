@@ -6,6 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 EXTENSION_DIR = ROOT / "extension"
+EXPECTED_EXTENSION_ID = "kcgjfiidlebnkcndbkafmgfdjgpcmabk"
 
 
 def fail(message: str) -> None:
@@ -24,6 +25,9 @@ def validate_extension() -> None:
 
     if manifest.get("manifest_version") != 3:
         fail("extension manifest must use Manifest V3")
+
+    if not manifest.get("key"):
+        fail(f"extension manifest must include the stable key for {EXPECTED_EXTENSION_ID}")
 
     for icon_path in manifest.get("icons", {}).values():
         require_file(EXTENSION_DIR / icon_path)

@@ -36,7 +36,7 @@ function startDownload(button) {
     },
     (response) => {
       if (chrome.runtime.lastError || !response?.ok) {
-        setButtonState(button, "Start local app", "error");
+        setButtonState(button, "Install helper", "error");
         return;
       }
 

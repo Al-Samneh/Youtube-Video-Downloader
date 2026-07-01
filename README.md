@@ -50,17 +50,21 @@ Downloaded files are saved in `downloads/`.
 2. Enable **Developer mode**.
 3. Click **Load unpacked**.
 4. Select this repository's `extension` folder.
-5. Copy the extension ID shown by Chrome.
-6. Install the native helper:
+5. Install the native helper:
 
    ```bash
    uv run python native/install_host.py
    ```
 
-7. Paste the extension ID when prompted.
-8. Restart Chrome and reload the extension.
-9. Open a YouTube video page.
-10. Use the extension popup or the **Download with Samneh** button on the page.
+6. Restart Chrome and reload the extension.
+7. Open a YouTube video page.
+8. Use the extension popup or the **Download with Samneh** button on the page.
+
+The unpacked extension uses a stable development ID:
+
+```text
+kcgjfiidlebnkcndbkafmgfdjgpcmabk
+```
 
 The native helper lets the extension start the local app automatically. Without it, start the app manually with:
 

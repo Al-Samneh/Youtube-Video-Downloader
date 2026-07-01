@@ -19,7 +19,13 @@ function sendNativeMessage(message) {
   return new Promise((resolve, reject) => {
     chrome.runtime.sendNativeMessage(NATIVE_HOST, message, (response) => {
       if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message));
+        const errorMessage = chrome.runtime.lastError.message || "";
+        if (errorMessage.includes("Specified native messaging host not found")) {
+          reject(new Error("Native helper is not installed. Run: uv run python native/install_host.py, then restart Chrome."));
+          return;
+        }
+
+        reject(new Error(errorMessage));
         return;
       }
 

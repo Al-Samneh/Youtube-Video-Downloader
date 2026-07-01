@@ -7,6 +7,7 @@ from pathlib import Path
 
 
 HOST_NAME = "com.samneh.youtube_download"
+DEFAULT_EXTENSION_ID = "kcgjfiidlebnkcndbkafmgfdjgpcmabk"
 ROOT = Path(__file__).resolve().parents[1]
 HOST_PATH = ROOT / "native" / "host.py"
 MANIFEST_DIR = Path.home() / "Library/Application Support/Google/Chrome/NativeMessagingHosts"
@@ -19,7 +20,7 @@ def read_extension_id() -> str:
     if extension_id:
         return extension_id
 
-    return input("Paste the unpacked Chrome extension ID: ").strip()
+    return DEFAULT_EXTENSION_ID
 
 
 def main() -> None:
@@ -44,6 +45,7 @@ def main() -> None:
     )
 
     print(f"Installed native messaging host: {MANIFEST_PATH}")
+    print(f"Allowed Chrome extension ID: {extension_id}")
     print("Restart Chrome, then reload the extension.")
 
 
