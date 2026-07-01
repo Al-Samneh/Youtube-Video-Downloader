@@ -92,16 +92,18 @@ async function checkLocalApp() {
     const data = await sendMessage({ type: "health" });
     setHealth(data.ffmpegInstalled ? "Local app ready" : "ffmpeg missing", data.ffmpegInstalled ? "ready" : "warning");
   } catch {
-    setHealth("Start local app first", "warning");
+    setHealth("Click download to start app", "warning");
   }
 }
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
   stopPolling();
-  setBusy(true, "Sending...");
+  setBusy(true, "Starting app...");
 
   try {
+    await sendMessage({ type: "ensure-local-app" });
+    setBusy(true, "Sending...");
     const job = await sendMessage({ type: "start-download", payload: buildPayload() });
     renderJob(job);
     setBusy(true, "Downloading...");

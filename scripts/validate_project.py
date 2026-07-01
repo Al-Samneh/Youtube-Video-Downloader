@@ -49,6 +49,9 @@ def main() -> None:
     require_file(ROOT / "static" / "index.html")
     require_file(ROOT / "static" / "app.js")
     require_file(ROOT / "static" / "styles.css")
+    require_file(ROOT / "native" / "host.py")
+    require_file(ROOT / "native" / "install_host.py")
+    require_file(ROOT / "native" / "uninstall_host.py")
     validate_extension()
     print("Project validation passed.")
 

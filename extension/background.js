@@ -1,4 +1,5 @@
 const API_BASE = "http://127.0.0.1:8765";
+const NATIVE_HOST = "com.samneh.youtube_download";
 
 async function requestJson(path, options = {}) {
   const response = await fetch(`${API_BASE}${path}`, {
@@ -14,11 +15,41 @@ async function requestJson(path, options = {}) {
   return payload;
 }
 
+function sendNativeMessage(message) {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendNativeMessage(NATIVE_HOST, message, (response) => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message));
+        return;
+      }
+
+      if (!response?.ok) {
+        reject(new Error(response?.error || "Native helper failed."));
+        return;
+      }
+
+      resolve(response);
+    });
+  });
+}
+
+async function ensureLocalApp() {
+  try {
+    return await requestJson("/api/health");
+  } catch {
+    const response = await sendNativeMessage({ type: "start" });
+    return response.health;
+  }
+}
+
 async function handleMessage(message) {
   switch (message?.type) {
     case "health":
       return requestJson("/api/health");
+    case "ensure-local-app":
+      return ensureLocalApp();
     case "start-download":
+      await ensureLocalApp();
       return requestJson("/api/downloads", {
         method: "POST",
         body: JSON.stringify(message.payload),
