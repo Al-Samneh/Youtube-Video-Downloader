@@ -8,6 +8,7 @@ import struct
 import subprocess
 import sys
 import time
+from contextlib import suppress
 from pathlib import Path
 from urllib.error import URLError
 from urllib.request import urlopen
@@ -17,6 +18,12 @@ ROOT = Path(__file__).resolve().parents[1]
 API_HEALTH_URL = "http://127.0.0.1:8765/api/health"
 LOG_DIR = ROOT / "logs"
 LOG_PATH = LOG_DIR / "samneh-youtube-download.log"
+COMMON_UV_PATHS = [
+    Path.home() / ".local" / "bin" / "uv",
+    Path.home() / ".cargo" / "bin" / "uv",
+    Path("/opt/homebrew/bin/uv"),
+    Path("/usr/local/bin/uv"),
+]
 
 
 def read_message() -> dict:
@@ -45,23 +52,53 @@ def health(timeout: float = 1.0) -> dict | None:
         return None
 
 
+def find_uv() -> str | None:
+    uv_path = shutil.which("uv")
+    if uv_path:
+        return uv_path
+
+    for candidate in COMMON_UV_PATHS:
+        if candidate.is_file() and os.access(candidate, os.X_OK):
+            return str(candidate)
+
+    return None
+
+
+def app_command() -> list[str]:
+    venv_python = ROOT / ".venv" / "bin" / "python"
+    if venv_python.is_file() and os.access(venv_python, os.X_OK):
+        return [str(venv_python), "app.py"]
+
+    uv_path = find_uv()
+    if uv_path:
+        return [uv_path, "run", "python", "app.py"]
+
+    searched = ", ".join(str(path) for path in COMMON_UV_PATHS)
+    raise RuntimeError(
+        "Could not find uv or .venv/bin/python. Run `uv sync` once from the project folder. "
+        f"The helper searched PATH and: {searched}."
+    )
+
+
+def open_log_file():
+    with suppress(OSError):
+        LOG_DIR.mkdir(parents=True, exist_ok=True)
+        return LOG_PATH.open("ab")
+
+    return subprocess.DEVNULL
+
+
 def start_app() -> dict:
     current_health = health()
     if current_health:
         return current_health
 
-    uv_path = shutil.which("uv")
-    if not uv_path:
-        raise RuntimeError("uv is not installed or is not on PATH.")
-
-    LOG_DIR.mkdir(parents=True, exist_ok=True)
-    log_file = LOG_PATH.open("ab")
     env = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}
     subprocess.Popen(
-        [uv_path, "run", "python", "app.py"],
+        app_command(),
         cwd=ROOT,
         env=env,
-        stdout=log_file,
+        stdout=open_log_file(),
         stderr=subprocess.STDOUT,
         start_new_session=True,
     )
